@@ -4,7 +4,7 @@ import type { Plugin } from "@opencode-ai/plugin"
 
 const TOKEN_PATH = `${homedir()}/.config/moshi/token`
 const API_URL = "https://api.getmoshi.app/api/v1/agent-events"
-const INTERESTING_TOOLS = new Set(["bash", "edit", "write", "read", "glob", "grep", "task"])
+const INTERESTING_TOOLS = new Set(["bash", "edit", "write", "read", "glob", "grep", "task", "question"])
 
 interface HookState {
   model?: string
@@ -171,7 +171,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
   setupEventSubscription()
 
   return {
-    "tool.execute.before": async (input, _output) => {
+    "tool.execute.before": async (input, output) => {
       const token = await loadToken()
       if (!token) return
 
@@ -182,6 +182,28 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
 
       const state = await readState(sessionID)
       const projectName = directory ? basename(directory) : undefined
+
+      if (tool === "question") {
+        const questions: any[] = output.args?.questions ?? []
+        const lines = questions.map((q) => {
+          const opts = q.options?.map((o: any) => `  - ${o.label}`).join("\n") ?? ""
+          return `${q.header}: ${q.question}\n${opts}`
+        })
+        const evt: AgentEvent = {
+          source: "opencode",
+          eventType: "notification",
+          sessionId: sessionID,
+          category: "approval_required",
+          title: "Question",
+          message: lines.join("\n---\n").slice(0, 512),
+          eventId: crypto.randomUUID(),
+          projectName,
+          modelName: state.model,
+          toolName: tool,
+        }
+        await sendAgentEvent(client, token, evt)
+        return
+      }
 
       const evt: AgentEvent = {
         source: "opencode",
@@ -204,6 +226,8 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
 
       const { tool, sessionID } = input
       if (!tool || !INTERESTING_TOOLS.has(tool.toLowerCase())) return
+
+      if (tool === "question") return
 
       const state = await readState(sessionID)
       const projectName = directory ? basename(directory) : undefined

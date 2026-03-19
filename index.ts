@@ -117,6 +117,29 @@ function formatModelName(model: string | undefined): string | undefined {
   return model.split("/").pop()
 }
 
+async function getContextPercent(sessionId: string, client: Parameters<Plugin>[0]["client"]): Promise<number | undefined> {
+  try {
+    const sessionRes = await client.session.get({ path: { id: sessionId } })
+    const sessionData = (sessionRes as any).data
+    if (!sessionData) return undefined
+
+    const model = sessionData.model as { limit?: { context?: number } } | undefined
+    const contextLimit = model?.limit?.context
+    if (!contextLimit) return undefined
+
+    const messagesRes = await client.session.messages({ path: { id: sessionId }, query: { limit: 1 } })
+    const messagesData = (messagesRes as any).data
+    const messages = messagesData?.messages ?? messagesData
+    const lastMsg = Array.isArray(messages) ? messages[messages.length - 1] : messages
+    if (!lastMsg?.tokens?.input) return undefined
+
+    const totalInputTokens = lastMsg.tokens.input
+    return Math.min(100, Math.round((totalInputTokens / contextLimit) * 100))
+  } catch {
+  }
+  return undefined
+}
+
 const pkg = await import("./package.json", { assert: { type: "json" } })
 const VERSION = pkg.default.version
 
@@ -153,6 +176,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
             eventId: crypto.randomUUID(),
             projectName,
             modelName: formatModelName(await getOrLoadModel(client, sessionId)),
+            contextPercent: await getContextPercent(sessionId, client),
           }
           await sendAgentEvent(client, token, evt)
         }
@@ -203,6 +227,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
           projectName,
           modelName: formatModelName(await getOrLoadModel(client, sessionID)),
           toolName: tool,
+          contextPercent: await getContextPercent(sessionID, client),
         }
         await sendAgentEvent(client, token, evt)
         return
@@ -219,6 +244,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         projectName,
         modelName: formatModelName(await getOrLoadModel(client, sessionID)),
         toolName: tool,
+        contextPercent: await getContextPercent(sessionID, client),
       }
       await sendAgentEvent(client, token, evt)
     },
@@ -246,6 +272,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         projectName,
         modelName: formatModelName(await getOrLoadModel(client, sessionID)),
         toolName: tool,
+        contextPercent: await getContextPercent(sessionID, client),
       }
       await sendAgentEvent(client, token, evt)
     },
@@ -271,6 +298,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         eventId: crypto.randomUUID(),
         projectName,
         modelName: formatModelName(await getOrLoadModel(client, sessionID)),
+        contextPercent: await getContextPercent(sessionID, client),
       }
       await sendAgentEvent(client, token, evt)
     },

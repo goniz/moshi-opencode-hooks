@@ -4,12 +4,13 @@ import type { Plugin } from "@opencode-ai/plugin"
 
 const TOKEN_PATH = `${homedir()}/.config/moshi/token`
 const API_URL = "https://api.getmoshi.app/api/v1/agent-events"
-const INTERESTING_TOOLS = new Set(["bash", "edit", "write", "read", "glob", "grep", "task", "question", "apply_patch"])
+const INTERESTING_TOOLS = new Set(["bash", "edit", "write", "read", "glob", "grep", "task", "question", "apply_patch", "webfetch", "websearch"])
 
 interface HookState {
   model?: string
   lastToolName?: string
   lastStopTime?: number
+  isSubagent?: boolean
 }
 
 interface AgentEvent {
@@ -121,6 +122,11 @@ function formatToolName(toolName: string): string {
   return toolName.charAt(0).toUpperCase() + toolName.slice(1)
 }
 
+function formatModelName(model: string | undefined): string | undefined {
+  if (!model) return undefined
+  return model.replace(/^claude-/, "")
+}
+
 export const MoshiHooks: Plugin = async ({ client, directory }) => {
   const setupEventSubscription = async () => {
     try {
@@ -134,13 +140,17 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         const state = await readState(sessionId)
 
         if (event.type === "session.created") {
+          const isSubagent = await isSubagentSession(sessionId)
           await writeState(sessionId, {
             model: (event as any).properties?.model,
+            isSubagent,
           })
           continue
         }
 
         if (event.type === "session.idle") {
+          if (state.isSubagent) continue
+
           const now = Date.now() / 1000
           if (state.lastStopTime && now - state.lastStopTime < 5) continue
 
@@ -155,7 +165,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
             message: "",
             eventId: crypto.randomUUID(),
             projectName,
-            modelName: state.model,
+            modelName: formatModelName(state.model),
             toolName: state.lastToolName,
           }
           await sendAgentEvent(client, token, evt)
@@ -208,7 +218,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
           message: lines.join("\n---\n").slice(0, 512),
           eventId: crypto.randomUUID(),
           projectName,
-          modelName: state.model,
+          modelName: formatModelName(state.model),
           toolName: tool,
         }
         await sendAgentEvent(client, token, evt)
@@ -224,7 +234,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         message: "",
         eventId: crypto.randomUUID(),
         projectName,
-        modelName: state.model,
+        modelName: formatModelName(state.model),
         toolName: tool,
       }
       await sendAgentEvent(client, token, evt)
@@ -252,7 +262,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         message: "",
         eventId: crypto.randomUUID(),
         projectName,
-        modelName: state.model,
+        modelName: formatModelName(state.model),
         toolName: tool,
       }
       await sendAgentEvent(client, token, evt)
@@ -264,6 +274,8 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
 
       const sessionID = (input as any).sessionID ?? "unknown"
       const state = await readState(sessionID)
+      if (state.isSubagent) return
+
       const projectName = directory ? basename(directory) : undefined
 
       const prompt = (input as any).prompt ?? ""
@@ -277,7 +289,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         message: prompt.slice(0, 256),
         eventId: crypto.randomUUID(),
         projectName,
-        modelName: state.model,
+        modelName: formatModelName(state.model),
       }
       await sendAgentEvent(client, token, evt)
     },

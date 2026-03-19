@@ -112,6 +112,32 @@ function formatToolName(toolName: string): string {
   return toolName.charAt(0).toUpperCase() + toolName.slice(1)
 }
 
+function formatToolDescription(tool: string, args: any): string {
+  switch (tool) {
+    case "bash":
+      return args?.command?.slice(0, 200) ?? ""
+    case "edit":
+      return args?.filePath ?? ""
+    case "write":
+      return args?.filePath ?? ""
+    case "read":
+      return args?.filePath ?? ""
+    case "glob":
+      return args?.pattern ?? ""
+    case "grep":
+      return args?.pattern ?? ""
+    case "task":
+      return args?.description?.slice(0, 100) ?? ""
+    case "apply_patch":
+      return args?.description?.slice(0, 200) ?? ""
+    case "webfetch":
+    case "websearch":
+      return args?.url ?? ""
+    default:
+      return ""
+  }
+}
+
 function formatModelName(model: string | undefined): string | undefined {
   if (!model) return undefined
   return model.split("/").pop()
@@ -239,7 +265,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         sessionId: sessionID,
         category: "tool_running",
         title: `Running ${formatToolName(tool)}`,
-        message: "",
+        message: formatToolDescription(tool, output.args),
         eventId: crypto.randomUUID(),
         projectName,
         modelName: formatModelName(await getOrLoadModel(client, sessionID)),

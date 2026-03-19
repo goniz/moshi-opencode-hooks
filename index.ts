@@ -94,6 +94,29 @@ async function sendEvent(token: string, event: AgentEvent): Promise<Response> {
   }
 }
 
+async function sendAgentEvent(
+  client: Parameters<Plugin>[0]["client"],
+  token: string,
+  event: AgentEvent,
+): Promise<void> {
+  try {
+    const res = await sendEvent(token, event)
+    if (!res.ok && res.status >= 500) {
+      await logPluginEvent(client, "error", "Moshi API returned server error", {
+        status: res.status,
+        eventType: event.eventType,
+        sessionId: event.sessionId,
+      })
+    }
+  } catch (err) {
+    await logPluginEvent(client, "error", "Failed to send Moshi event", {
+      error: err instanceof Error ? err.message : String(err),
+      eventType: event.eventType,
+      sessionId: event.sessionId,
+    })
+  }
+}
+
 function formatToolName(toolName: string): string {
   return toolName.charAt(0).toUpperCase() + toolName.slice(1)
 }
@@ -135,22 +158,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
             modelName: state.model,
             toolName: state.lastToolName,
           }
-          try {
-            const res = await sendEvent(token, evt)
-            if (!res.ok && res.status >= 500) {
-              await logPluginEvent(client, "error", "Moshi API returned server error", {
-                status: res.status,
-                eventType: evt.eventType,
-                sessionId,
-              })
-            }
-          } catch (err) {
-            await logPluginEvent(client, "error", "Failed to send Moshi event", {
-              error: err instanceof Error ? err.message : String(err),
-              eventType: evt.eventType,
-              sessionId,
-            })
-          }
+          await sendAgentEvent(client, token, evt)
         }
       }
     } catch (err) {
@@ -187,22 +195,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         modelName: state.model,
         toolName: tool,
       }
-      try {
-        const res = await sendEvent(token, evt)
-        if (!res.ok && res.status >= 500) {
-          await logPluginEvent(client, "error", "Moshi API returned server error", {
-            status: res.status,
-            eventType: evt.eventType,
-            sessionId: sessionID,
-          })
-        }
-      } catch (err) {
-        await logPluginEvent(client, "error", "Failed to send Moshi event", {
-          error: err instanceof Error ? err.message : String(err),
-          eventType: evt.eventType,
-          sessionId: sessionID,
-        })
-      }
+      await sendAgentEvent(client, token, evt)
     },
 
     "tool.execute.after": async (input, output) => {
@@ -227,22 +220,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         modelName: state.model,
         toolName: tool,
       }
-      try {
-        const res = await sendEvent(token, evt)
-        if (!res.ok && res.status >= 500) {
-          await logPluginEvent(client, "error", "Moshi API returned server error", {
-            status: res.status,
-            eventType: evt.eventType,
-            sessionId: sessionID,
-          })
-        }
-      } catch (err) {
-        await logPluginEvent(client, "error", "Failed to send Moshi event", {
-          error: err instanceof Error ? err.message : String(err),
-          eventType: evt.eventType,
-          sessionId: sessionID,
-        })
-      }
+      await sendAgentEvent(client, token, evt)
     },
 
     "permission.asked": async (input: any, _output: any) => {
@@ -266,22 +244,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         projectName,
         modelName: state.model,
       }
-      try {
-        const res = await sendEvent(token, evt)
-        if (!res.ok && res.status >= 500) {
-          await logPluginEvent(client, "error", "Moshi API returned server error", {
-            status: res.status,
-            eventType: evt.eventType,
-            sessionId: sessionID,
-          })
-        }
-      } catch (err) {
-        await logPluginEvent(client, "error", "Failed to send Moshi event", {
-          error: err instanceof Error ? err.message : String(err),
-          eventType: evt.eventType,
-          sessionId: sessionID,
-        })
-      }
+      await sendAgentEvent(client, token, evt)
     },
   }
 }

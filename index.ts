@@ -6,13 +6,6 @@ const TOKEN_PATH = `${homedir()}/.config/moshi/token`
 const API_URL = "https://api.getmoshi.app/api/v1/agent-events"
 const INTERESTING_TOOLS = new Set(["bash", "edit", "write", "read", "glob", "grep", "task", "question", "apply_patch", "webfetch", "websearch"])
 
-interface HookState {
-  model?: string
-  lastToolName?: string
-  lastStopTime?: number
-  isSubagent?: boolean
-}
-
 interface AgentEvent {
   source: "opencode"
   eventType: "pre_tool" | "post_tool" | "notification" | "stop"
@@ -25,25 +18,6 @@ interface AgentEvent {
   modelName?: string
   toolName?: string
   contextPercent?: number
-}
-
-function statePath(sessionId: string): string {
-  return `/tmp/moshi-opencode-hook-${sessionId}.json`
-}
-
-async function readState(sessionId: string): Promise<HookState> {
-  try {
-    const file = Bun.file(statePath(sessionId))
-    if (!file.size) return {}
-    return await file.json()
-  } catch {
-    return {}
-  }
-}
-
-async function writeState(sessionId: string, patch: Partial<HookState>): Promise<void> {
-  const existing = await readState(sessionId)
-  await Bun.write(statePath(sessionId), JSON.stringify({ ...existing, ...patch }))
 }
 
 async function loadToken(): Promise<string | null> {
@@ -93,6 +67,22 @@ async function sendEvent(token: string, event: AgentEvent): Promise<Response> {
   } catch (err) {
     throw err
   }
+}
+
+async function getModel(client: Parameters<Plugin>[0]["client"], sessionId: string): Promise<string | undefined> {
+  try {
+    const res = await (client.session.get as any)({ sessionID: sessionId })
+    return res.data?.model
+  } catch {
+    return undefined
+  }
+}
+
+async function getOrLoadModel(
+  client: Parameters<Plugin>[0]["client"],
+  sessionId: string,
+): Promise<string | undefined> {
+  return await getModel(client, sessionId)
 }
 
 async function sendAgentEvent(
@@ -149,24 +139,9 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
 
         const sessionId = (event as any).sessionId ?? "unknown"
         const projectName = directory ? basename(directory) : undefined
-        const state = await readState(sessionId)
-
-        if (event.type === "session.created") {
-          const isSubagent = await isSubagentSession(sessionId)
-          await writeState(sessionId, {
-            model: (event as any).properties?.model,
-            isSubagent,
-          })
-          continue
-        }
 
         if (event.type === "session.idle") {
-          if (state.isSubagent) continue
-
-          const now = Date.now() / 1000
-          if (state.lastStopTime && now - state.lastStopTime < 5) continue
-
-          await writeState(sessionId, { lastStopTime: now })
+          if (await isSubagentSession(sessionId)) continue
 
           const evt: AgentEvent = {
             source: "opencode",
@@ -177,8 +152,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
             message: "",
             eventId: crypto.randomUUID(),
             projectName,
-            modelName: formatModelName(state.model),
-            toolName: state.lastToolName,
+            modelName: formatModelName(await getOrLoadModel(client, sessionId)),
           }
           await sendAgentEvent(client, token, evt)
         }
@@ -210,9 +184,6 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
       if (!tool || !INTERESTING_TOOLS.has(tool.toLowerCase())) return
       if (await isSubagentSession(sessionID)) return
 
-      await writeState(sessionID, { lastToolName: tool })
-
-      const state = await readState(sessionID)
       const projectName = directory ? basename(directory) : undefined
 
       if (tool === "question") {
@@ -230,7 +201,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
           message: lines.join("\n---\n").slice(0, 512),
           eventId: crypto.randomUUID(),
           projectName,
-          modelName: formatModelName(state.model),
+          modelName: formatModelName(await getOrLoadModel(client, sessionID)),
           toolName: tool,
         }
         await sendAgentEvent(client, token, evt)
@@ -246,7 +217,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         message: "",
         eventId: crypto.randomUUID(),
         projectName,
-        modelName: formatModelName(state.model),
+        modelName: formatModelName(await getOrLoadModel(client, sessionID)),
         toolName: tool,
       }
       await sendAgentEvent(client, token, evt)
@@ -262,7 +233,6 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
 
       if (tool === "question") return
 
-      const state = await readState(sessionID)
       const projectName = directory ? basename(directory) : undefined
 
       const evt: AgentEvent = {
@@ -274,7 +244,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         message: "",
         eventId: crypto.randomUUID(),
         projectName,
-        modelName: formatModelName(state.model),
+        modelName: formatModelName(await getOrLoadModel(client, sessionID)),
         toolName: tool,
       }
       await sendAgentEvent(client, token, evt)
@@ -285,8 +255,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
       if (!token) return
 
       const sessionID = (input as any).sessionID ?? "unknown"
-      const state = await readState(sessionID)
-      if (state.isSubagent) return
+      if (await isSubagentSession(sessionID)) return
 
       const projectName = directory ? basename(directory) : undefined
 
@@ -301,7 +270,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         message: prompt.slice(0, 256),
         eventId: crypto.randomUUID(),
         projectName,
-        modelName: formatModelName(state.model),
+        modelName: formatModelName(await getOrLoadModel(client, sessionID)),
       }
       await sendAgentEvent(client, token, evt)
     },

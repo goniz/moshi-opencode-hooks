@@ -2,8 +2,6 @@
 
 OpenCode plugin that sends real-time events to the [Moshi](https://getmoshi.app) iOS app for live activity integration.
 
-![Live Activity](https://img.shields.io/badge/Live%20Activity-Moshi-blue)
-
 ## Motivation
 
 [Moshi](https://getmoshi.app) is an iOS SSH app that provides live activity widgets on the lock screen and Dynamic Island. While it already supports Cloud Code, this plugin brings the same live activity experience to [OpenCode](https://opencode.ai) users.
@@ -36,27 +34,15 @@ Add to `~/.config/opencode/opencode.json`:
 }
 ```
 
-## Events
-
-The plugin sends these events to Moshi:
-
-| OpenCode Event | Moshi Display |
-|----------------|--------------|
-| `session.created` | Session started |
-| `tool.execute.before` | Running tool (Bash, Edit, Write, Read, Glob, Grep, Task) |
-| `tool.execute.after` | Tool finished |
-| `permission.ask` | Permission required |
-| `session.idle` | Task complete |
-
 ## Requirements
 
 - [OpenCode](https://opencode.ai)
-- [Moshi iOS app](https://getmoshi.app) with Cloud Code subscription
+- [Moshi iOS app](https://getmoshi.app) with Pro subscription
 
 ## Moshi Token
 
 Get your token from the Moshi iOS app:
-1. Open Moshi → Settings → Coding Agents
+1. Open Moshi → Settings → Agent Hooks
 2. Copy the hook token
 
 ## Uninstall

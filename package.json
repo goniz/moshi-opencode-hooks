@@ -18,7 +18,7 @@
   "scripts": {
     "build": "bun build index.ts --outdir=dist --target=bun --format=esm",
     "typecheck": "bun tsc --noEmit",
-    "publish": "bash scripts/release.sh"
+    "release": "bash scripts/release.sh"
   },
   "devDependencies": {
     "@types/bun": "latest"

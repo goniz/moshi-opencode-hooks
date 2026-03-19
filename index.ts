@@ -119,16 +119,16 @@ function formatModelName(model: string | undefined): string | undefined {
 
 async function getContextPercent(sessionId: string, client: Parameters<Plugin>[0]["client"]): Promise<number | undefined> {
   try {
-    const sessionRes = await client.session.get({ path: { id: sessionId } })
-    const sessionData = (sessionRes as any).data
+    const sessionRes = await (client.session.get as any)({ sessionID: sessionId })
+    const sessionData = sessionRes.data
     if (!sessionData) return undefined
 
     const model = sessionData.model as { limit?: { context?: number } } | undefined
     const contextLimit = model?.limit?.context
     if (!contextLimit) return undefined
 
-    const messagesRes = await client.session.messages({ path: { id: sessionId }, query: { limit: 1 } })
-    const messagesData = (messagesRes as any).data
+    const messagesRes = await (client.session.messages as any)({ sessionID: sessionId, limit: 1 })
+    const messagesData = messagesRes.data
     const messages = messagesData?.messages ?? messagesData
     const lastMsg = Array.isArray(messages) ? messages[messages.length - 1] : messages
     if (!lastMsg?.tokens?.input) return undefined
@@ -136,8 +136,8 @@ async function getContextPercent(sessionId: string, client: Parameters<Plugin>[0
     const totalInputTokens = lastMsg.tokens.input
     return Math.min(100, Math.round((totalInputTokens / contextLimit) * 100))
   } catch {
+    return undefined
   }
-  return undefined
 }
 
 const pkg = await import("./package.json", { assert: { type: "json" } })

@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 
 import { homedir } from "os"
-import { dirname, resolve } from "path"
+import { dirname } from "path"
 
 const TOKEN_PATH = `${homedir()}/.config/moshi/token`
 const OPENCODE_CONFIG_PATH = `${homedir()}/.config/opencode/opencode.json`
-const PLUGIN_SOURCE = resolve(import.meta.dirname, "..", "index.ts")
+const PLUGIN_SOURCE = "moshi-opencode-hooks"
 const HOOK_IDENTIFIER = "moshi-opencode-hooks"
 
 async function loadConfig(): Promise<Record<string, unknown>> {

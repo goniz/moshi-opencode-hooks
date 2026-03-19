@@ -115,7 +115,7 @@ function formatToolName(toolName: string): string {
 function formatToolDescription(tool: string, args: any): string {
   switch (tool) {
     case "bash":
-      return args?.command?.slice(0, 200) ?? ""
+      return args?.description?.slice(0, 200) ?? ""
     case "edit":
       return args?.filePath ?? ""
     case "write":

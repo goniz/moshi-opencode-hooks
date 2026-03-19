@@ -114,7 +114,7 @@ function formatToolName(toolName: string): string {
 
 function formatModelName(model: string | undefined): string | undefined {
   if (!model) return undefined
-  return model.replace(/^claude-/, "")
+  return model.split("/").pop()
 }
 
 const pkg = await import("./package.json", { assert: { type: "json" } })

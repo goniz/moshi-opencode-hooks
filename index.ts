@@ -170,6 +170,15 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
 
   setupEventSubscription()
 
+  const isSubagentSession = async (sessionID: string): Promise<boolean> => {
+    try {
+      const res = await (client.session.get as any)({ sessionID })
+      return !!(res.data?.parentID)
+    } catch {
+      return false
+    }
+  }
+
   return {
     "tool.execute.before": async (input, output) => {
       const token = await loadToken()
@@ -177,6 +186,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
 
       const { tool, sessionID } = input
       if (!tool || !INTERESTING_TOOLS.has(tool.toLowerCase())) return
+      if (await isSubagentSession(sessionID)) return
 
       await writeState(sessionID, { lastToolName: tool })
 
@@ -226,6 +236,7 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
 
       const { tool, sessionID } = input
       if (!tool || !INTERESTING_TOOLS.has(tool.toLowerCase())) return
+      if (await isSubagentSession(sessionID)) return
 
       if (tool === "question") return
 

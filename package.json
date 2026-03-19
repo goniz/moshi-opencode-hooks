@@ -5,6 +5,9 @@
   "module": "index.ts",
   "type": "module",
   "main": "index.ts",
+  "bin": {
+    "moshi-opencode-hooks": "./src/cli.ts"
+  },
   "exports": {
     ".": "./index.ts"
   },

@@ -4,7 +4,7 @@ import type { Plugin } from "@opencode-ai/plugin"
 
 const TOKEN_PATH = `${homedir()}/.config/moshi/token`
 const API_URL = "https://api.getmoshi.app/api/v1/agent-events"
-const INTERESTING_TOOLS = new Set(["bash", "edit", "write", "read", "glob", "grep", "task", "question"])
+const INTERESTING_TOOLS = new Set(["bash", "edit", "write", "read", "glob", "grep", "task", "question", "apply_patch"])
 
 interface HookState {
   model?: string

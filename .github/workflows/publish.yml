@@ -18,6 +18,6 @@ jobs:
           bun-version: latest
       - run: bun install
       - run: bun run build
-      - uses: npm/publish@v4
-        with:
-          token: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish --provenance --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

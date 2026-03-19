@@ -127,6 +127,9 @@ function formatModelName(model: string | undefined): string | undefined {
   return model.replace(/^claude-/, "")
 }
 
+const pkg = await import("./package.json", { assert: { type: "json" } })
+const VERSION = pkg.default.version
+
 export const MoshiHooks: Plugin = async ({ client, directory }) => {
   const setupEventSubscription = async () => {
     try {
@@ -190,6 +193,11 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
   }
 
   return {
+    "tui.toast.show": async (_input: unknown, output: any) => {
+      output.message = `moshi-opencode-hooks v${VERSION} is active`
+      output.type = "info"
+    },
+
     "tool.execute.before": async (input, output) => {
       const token = await loadToken()
       if (!token) return

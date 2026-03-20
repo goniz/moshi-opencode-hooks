@@ -10,7 +10,7 @@ interface AgentEvent {
   source: "opencode"
   eventType: "pre_tool" | "post_tool" | "notification" | "stop"
   sessionId: string
-  category: "approval_required" | "task_complete" | "tool_running" | "tool_finished" | "info" | "error"
+  category: "approval_required" | "task_complete" | "tool_running" | "tool_finished" | "info" | "error" | "thinking"
   title: string
   message: string
   eventId: string
@@ -230,6 +230,55 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
               category: "error",
               title: "Session Retry",
               message: status.message ?? "Retrying...",
+              eventId: crypto.randomUUID(),
+              projectName,
+              modelName: formatModelName(await getOrLoadModel(client, sessionId)),
+              contextPercent: await getContextPercent(sessionId, client),
+            }
+            await sendAgentEvent(client, token, evt)
+          }
+        } else if (event.type === "message.part.updated") {
+          const part = (event as any).properties?.part
+          if (!part) continue
+          if (await isSubagentSession(sessionId)) continue
+
+          if (part.type === "step-start") {
+            const evt: AgentEvent = {
+              source: "opencode",
+              eventType: "notification",
+              sessionId,
+              category: "thinking",
+              title: "Thinking",
+              message: part.snapshot ?? "Step started",
+              eventId: crypto.randomUUID(),
+              projectName,
+              modelName: formatModelName(await getOrLoadModel(client, sessionId)),
+              contextPercent: await getContextPercent(sessionId, client),
+            }
+            await sendAgentEvent(client, token, evt)
+          } else if (part.type === "reasoning") {
+            const summary = (part as any).metadata?.summary ?? part.text?.slice(0, 200)
+            const evt: AgentEvent = {
+              source: "opencode",
+              eventType: "notification",
+              sessionId,
+              category: "thinking",
+              title: "Reasoning",
+              message: summary ?? "",
+              eventId: crypto.randomUUID(),
+              projectName,
+              modelName: formatModelName(await getOrLoadModel(client, sessionId)),
+              contextPercent: await getContextPercent(sessionId, client),
+            }
+            await sendAgentEvent(client, token, evt)
+          } else if (part.type === "step-finish") {
+            const evt: AgentEvent = {
+              source: "opencode",
+              eventType: "notification",
+              sessionId,
+              category: "thinking",
+              title: "Step Complete",
+              message: part.reason ?? "",
               eventId: crypto.randomUUID(),
               projectName,
               modelName: formatModelName(await getOrLoadModel(client, sessionId)),

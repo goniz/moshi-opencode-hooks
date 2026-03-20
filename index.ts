@@ -10,7 +10,7 @@ interface AgentEvent {
   source: "opencode"
   eventType: "pre_tool" | "post_tool" | "notification" | "stop"
   sessionId: string
-  category: "approval_required" | "task_complete" | "tool_running" | "tool_finished"
+  category: "approval_required" | "task_complete" | "tool_running" | "tool_finished" | "info" | "error"
   title: string
   message: string
   eventId: string
@@ -186,25 +186,57 @@ export const MoshiHooks: Plugin = async ({ client, directory }) => {
         const token = await loadToken()
         if (!token) continue
 
-        const sessionId = (event as any).sessionId ?? "unknown"
+        const sessionId = (event as any).sessionId ?? (event as any).properties?.sessionId ?? "unknown"
         const projectName = directory ? basename(directory) : undefined
 
-        if (event.type === "session.idle") {
+        if (event.type === "session.status") {
+          const status = (event as any).properties?.status
+          if (!status) continue
           if (await isSubagentSession(sessionId)) continue
 
-          const evt: AgentEvent = {
-            source: "opencode",
-            eventType: "stop",
-            sessionId,
-            category: "task_complete",
-            title: "Task Complete",
-            message: "",
-            eventId: crypto.randomUUID(),
-            projectName,
-            modelName: formatModelName(await getOrLoadModel(client, sessionId)),
-            contextPercent: await getContextPercent(sessionId, client),
+          if (status.type === "idle") {
+            const evt: AgentEvent = {
+              source: "opencode",
+              eventType: "stop",
+              sessionId,
+              category: "task_complete",
+              title: "Task Complete",
+              message: "",
+              eventId: crypto.randomUUID(),
+              projectName,
+              modelName: formatModelName(await getOrLoadModel(client, sessionId)),
+              contextPercent: await getContextPercent(sessionId, client),
+            }
+            await sendAgentEvent(client, token, evt)
+          } else if (status.type === "busy") {
+            const evt: AgentEvent = {
+              source: "opencode",
+              eventType: "notification",
+              sessionId,
+              category: "info",
+              title: "Session Active",
+              message: "Agent is thinking or working",
+              eventId: crypto.randomUUID(),
+              projectName,
+              modelName: formatModelName(await getOrLoadModel(client, sessionId)),
+              contextPercent: await getContextPercent(sessionId, client),
+            }
+            await sendAgentEvent(client, token, evt)
+          } else if (status.type === "retry") {
+            const evt: AgentEvent = {
+              source: "opencode",
+              eventType: "notification",
+              sessionId,
+              category: "error",
+              title: "Session Retry",
+              message: status.message ?? "Retrying...",
+              eventId: crypto.randomUUID(),
+              projectName,
+              modelName: formatModelName(await getOrLoadModel(client, sessionId)),
+              contextPercent: await getContextPercent(sessionId, client),
+            }
+            await sendAgentEvent(client, token, evt)
           }
-          await sendAgentEvent(client, token, evt)
         }
       }
     } catch (err) {
